@@ -1,0 +1,11 @@
+MERCHANT_NORMALIZATION_MAPPING_EXPRESSIONS = {
+  r'.*PayPal.*': 'PayPal',
+  r'.*[Jj][Oo][Nn][Aa][Ss].*': 'Jonas Schwarz',
+}
+
+DEBIT_CARD_TRANSACTION_TYPE = 'VISA Debitkartenumsatz'
+
+MERCHANT_TRANSACTION_TYPE_MAPPINGS = {
+  'PayPal': DEBIT_CARD_TRANSACTION_TYPE,
+}
+
