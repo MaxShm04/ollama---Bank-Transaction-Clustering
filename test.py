@@ -65,7 +65,6 @@ def nostream_request(prompt, model):
     return response_text
 
 
-
 def stream_request(prompt, model):
     print("Start streaming request")
     # URL für den POST-Request
@@ -93,8 +92,6 @@ def stream_request(prompt, model):
                     print(json_response)  # JSON-Antwort ausgeben
         else:
             print(f"Error with status code: {response.status_code}")
-
-
 
 
 def load_csv():
@@ -148,19 +145,21 @@ def load_csv():
     return all_csv_content, batches, total_rows
 
 
-
 def single_request(prompt, stream=False, model="8b"):
-    #print(f"Request: {prompt}")
+    # print(f"Request: {prompt}")
     if stream:
         return stream_request(prompt, model)
     else:
-       return nostream_request(prompt, model)
+        return nostream_request(prompt, model)
 
 
 def request_clusters(content, model):
-    output = single_request(f"{content}; each of these banktranctions has the format id|Auftragskonto|Buchungstag|Valutadatum|Buchungstext|Verwendungszweck|Glaeubiger ID|Mandatsreferenz|Kundenreferenz (End-to-End)|Sammlerreferenz|Lastschrift Ursprungsbetrag|Auslagenersatz Ruecklastschrift|Beguenstigter/Zahlungspflichtiger|Kontonummer/IBAN|BIC (SWIFT-Code)|Betrag|Waehrung|Info; use columns 'Beguenstigter/Zahlungspflichtiger' and 'Verwendungszweck' for categorizing the transactions in suitable kategories. give the categories; there are two type: income and expenses. focus on the expenses, for example shopping, restaurants, sport, etc..., create round about 20 categories and the tell me how many transactions are in each category, each transaction has to be in exactly one category, that means at the ende the summarized number of transaction each category has to be 486 ; just give me the categories, no further text", model = model)
+    output = single_request(
+        f"{content}; each of these banktranctions has the format id|Auftragskonto|Buchungstag|Valutadatum|Buchungstext|Verwendungszweck|Glaeubiger ID|Mandatsreferenz|Kundenreferenz (End-to-End)|Sammlerreferenz|Lastschrift Ursprungsbetrag|Auslagenersatz Ruecklastschrift|Beguenstigter/Zahlungspflichtiger|Kontonummer/IBAN|BIC (SWIFT-Code)|Betrag|Waehrung|Info; use columns 'Beguenstigter/Zahlungspflichtiger' and 'Verwendungszweck' for categorizing the transactions in suitable kategories. give the categories; there are two type: income and expenses. focus on the expenses, for example shopping, restaurants, sport, etc..., create round about 20 categories and the tell me how many transactions are in each category, each transaction has to be in exactly one category, that means at the ende the summarized number of transaction each category has to be 486 ; just give me the categories, no further text",
+        model=model)
     print(output)
     return output
+
 
 '''def request_categorized_transactions(batches, model, categories):
     print(len(batches))
@@ -173,6 +172,7 @@ def request_clusters(content, model):
     
 '''
 
+
 def request_categorized_transactions(batches, model, categories):
     final_output = ""  # String, der alle Ergebnisse sammelt
     for key, batch in batches.items():
@@ -184,31 +184,78 @@ def request_categorized_transactions(batches, model, categories):
 
     return final_output.strip()  # Rückgabe des finalen Strings ohne zusätzliche Leerzeilen am Ende
 
+
 def result(categorized_string):
     # Entfernen aller Buchstaben (Groß- und Kleinbuchstaben)
     no_letters = re.sub(r'[a-zA-Z]', '', categorized_string)
-    # Entfernen aller '*?' Zeichen
-    no_special_chars = re.sub(r'\*\?', '', no_letters)
+    # Entfernen aller Inhalte nach einem Doppelpunkt (einschließlich des Doppelpunkts)
+    no_colon_content = re.sub(r':.*', '', no_letters)
+    # Entfernen von Klammern und deren Inhalten
+    no_parentheses = re.sub(r'\(.*?\)', '', no_colon_content)
+    # Entfernen aller unerwünschten Sonderzeichen, außer '|', '_'
+    no_unwanted_chars = re.sub(r'[^|\d\n_]', '', no_parentheses)
     # Entfernen aller leeren Zeilen
-    no_empty_lines = re.sub(r'\n\s*\n', '\n', no_special_chars).strip()
+    no_empty_lines = re.sub(r'\n\s*\n', '\n', no_unwanted_chars).strip()
     return no_empty_lines
 
+def remove_before_first_number(text):
+    # Suche nach der ersten Stelle, an der eine Zahl erscheint
+    match = re.search(r'\d', text)
+    if match:
+        # Extrahiere alles ab dieser Stelle
+        return text[match.start():]
+    return text  # Falls keine Zahl gefunden wird, gebe den Originaltext zurück
+
+
+def format_csv(categories_string, transactions_string, csv_data_string):
+    # Kategorien extrahieren
+    categories = {}
+    for line in categories_string.split('\n'):
+        match = re.match(r'(\d+)\.\s(.+)', line)
+        if match:
+            categories[match.group(1)] = match.group(2)
+
+    # Transaktionszuordnungen extrahieren
+    transaction_to_category_id = {}
+    for line in transactions_string.split('\n'):
+        if '|' in line:
+            cat_id, trans_id = line.split('|')
+            transaction_to_category_id[trans_id] = cat_id
+
+    # CSV-Reader verwenden, um den CSV-String zu parsen und eine neue Spalte hinzuzufügen
+    reader = csv.reader(csv_data_string.splitlines(), delimiter=';')
+    result = []
+
+    for row in reader:
+        # Entferne den Präfix mit der ID (z.B. "1:")
+        transaction_id = row[0].split(':')[0].strip()
+        category_id = transaction_to_category_id.get(transaction_id, "Unknown")
+        category_name = categories.get(category_id, "Unknown")
+        # Füge die Kategorie als letztes Element hinzu
+        row.append(category_name)
+        result.append(';'.join(row))
+
+    with open('output.csv', 'w', newline='') as file:
+        writer = csv.writer(file, delimiter=';')
+        for line in result:
+            writer.writerow(line.split(';'))
+
+    # Das Resultat als ein großer String
+    result_string = '\n'.join(result)
+    print(result_string)
 
 if __name__ == '__main__':
     pull_model()
-    csv = load_csv();
+    csv_data = load_csv();
     model = "8b";
-    categories = request_clusters(csv[0], model)
-    cat = request_categorized_transactions(csv[1], model, categories);
-
+    categories = request_clusters(csv_data[0], model)
+    cat = request_categorized_transactions(csv_data[1], model, categories);
 
     os.system('cls')  # Clear console
     print(categories)
-    print(f'---------------------------------------\n---------------------------------------\n---------------------------------------\n---------------------------------------\n---------------------------------------')
+    print('---------------------------------------' * 5)
     print(result(cat))
-
-
-
-
+    print('---------------------------------------' * 5)
+    format_csv(remove_before_first_number(categories), cat, csv_data[0])
 #request(f"Cluster and categorize all the provided data representing bank transfers into a suitable number of categories with appropriate names. The final result should contain the categorized data in categories more based on purpose of use like Living, Restaurants, Shopping, etc..., not in categories based on date or amount or type of transaction : {load_csv()[0]}, just use columns 'Beguenstigter/Zahlungspflichtiger' and 'Verwendungszweck' for clustering; As Output first give me the categories whith each kategory_id and then give me all thransactions in the following format ordered by Kategory_id: Kategory_id | transaction_ID , the ID is the int at position 0 of each transaction string; do this for each of the {load_csv()[1]} transactions and give me the output for every transaction, every transaction has to be in exactly one category, you shouldnt simplify anything, dont short anything" , False, "8b")
 #request("Why is the sky blue? answer short", True)
