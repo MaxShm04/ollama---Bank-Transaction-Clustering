@@ -177,7 +177,7 @@ def request_categorized_transactions(batches, model, categories):
     final_output = ""  # String, der alle Ergebnisse sammelt
     for key, batch in batches.items():
         print(f"Processing batch {key}")
-        formatted_batch = f"{batch}; put each of those 5 bank transactions in the most suitable category of the following list: {categories}, ignore the numbers behind the categories. one transaction has to be in exactly one category, give me as output 5 rows with category_id | transaction id (first value in each transaction string, in the format int_int); give me no further text, begin and end my output with the string '*?*' so i can work with it; for example '*?*\n1|1_1\n2|1_2\n4|1_3\n17|1_4\n2|1_5\n*?*', give me exactly the same format."
+        formatted_batch = f"{batch}; put each of those 5 bank transactions in the most suitable category of the following list: {categories}, ignore the numbers behind the categories. one transaction has to be in exactly one category, transactions to the same destination should be in the same category except if it is a payment service as e.g. paypal, you can search for words in the purpose (6th and 13th value each time) of use which can give you a hint for the most suitable category, maybe the payee can also give you a hint, for example if it is a company, give me as output 5 rows with category_id | transaction id (first value in each transaction string, in the format int_int); give me no further text, begin and end my output with the string '*?*' so i can work with it; for example '*?*\n1|1_1\n2|1_2\n4|1_3\n17|1_4\n2|1_5\n*?*', give me exactly the same format."
         output = single_request(formatted_batch, model=model)  # Annahme, dass single_request die API-Anfrage handhabt
         cleaned_output = output.strip('*?*').strip()  # Entfernen der '*?*'
         final_output += cleaned_output + "\n"  # Hinzufügen des bereinigten Ergebnisses zum finalen String
@@ -219,7 +219,8 @@ def format_csv(categories_string, transactions_string, csv_data_string):
     transaction_to_category_id = {}
     for line in transactions_string.split('\n'):
         if '|' in line:
-            cat_id, trans_id = line.split('|')
+            # Änderung hier, um sicherzustellen, dass die Zeile korrekt aufgeteilt wird
+            cat_id, trans_id = line.split('|', 1)
             transaction_to_category_id[trans_id] = cat_id
 
     # CSV-Reader verwenden, um den CSV-String zu parsen und eine neue Spalte hinzuzufügen
