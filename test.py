@@ -181,21 +181,23 @@ def request_categorized_transactions(batches, model, categories):
         format = 'ID|Transaction Account|Booking Date|Value Date|Booking Text|Purpose|Creditor ID|Mandate Reference|Customer Reference (End-to-End)|Collectors Reference|Original Debit Amount|Expenses Replacement for Returned Debit|Beneficiary/Payee|Account Number/IBAN|BIC (SWIFT Code)|Amount|Currency|Information'
         #formatted_batch = f"I have folling format for all  batches: {format};the values are seperated by ';', there can be empty values, marked by '' ; this are the batches:\n{batch}; put each of those 5 bank transactions in the most suitable category of the following list: {categories}, ignore the numbers behind the categories. always ask your self like 'do i know the payee (13th value), have i ever heard of it, is it familiar to something, which category could it be'; one transaction has to be in exactly one category, transactions to the same destination/IBAN (14th value) must be in the same category except if it is a payment service as e.g. paypal, you can search for words in the purpose (6th and 13th value each time) of use which can give you a hint for the most suitable category, maybe the payee can also give you a hint, for example if it is a company, give me as output 5 rows mandatory in the following  format: category_id | transaction id (first value in each transaction string, in the format int_int)| Accountnumber of the payee/Iban (entire 14th value, delete the 'DE', just the number, always put the entire number in the output); give me no further text, begin and end my output with the string '*?*' so i can work with it; for example '*?*\n1|1_1|51300500000001474915\n2|1_2|51300500000001474914\n4|1_3|51300500000001474913\n17|1_4|51300500000001474912\n2|1_5|51300500000001474911\n*?*', give me exactly the same format. This is the current list, use it if the payee is in this list yet and put the new transaction in the same category: {final_output}"
         formatted_batch = f'''
-        I have the following batch format: {{format}};
+        I have the following batch format: {format};
         The values are separated by ';', and empty values are marked by ''.
-        Here are the batches:\n{{batches_example}};
-        Refer to the previously categorized transactions: \n{{final_output}}
-        Your task is to categorize each of these 5 bank transactions into the most suitable category from the following list: {{categories}}.
+        Here are the batches:\n{batch};
+        Refer to the previously categorized transactions: \n{final_output}
+        Your task is to categorize each of these 5 bank transactions into the most suitable category from the following list: {categories}.
         Ensure that transactions with the same payee (IBAN) are consistently categorized based on the `final_output`. If a payee/IBAN has been categorized previously, assign the same category to new transactions involving this payee/IBAN.
         Each transaction must be categorized into exactly one category.
         Utilize any identifiable information such as the payee, purpose of payment, or any known references to determine the correct category.
         The output format should be:
-        *?*
+        '*?*
         category_id | transaction_id | IBAN (exclude 'DE' and include entire number)
-        *?*
+        *?*'
         For example:
         *?*\n1|1_1|3762500000009849605\n2|1_2|70763500000006010410\n4|1_3|8664926000001439464\n17|1_4|7500500000959566027\n2|1_5|1300500000001474915\n*?*
+        I dont want any further text except this
         Note: Always review `final_output` for existing categorizations to maintain consistency.
+        
         '''
         output = single_request(formatted_batch, model=model)  # Annahme, dass single_request die API-Anfrage handhabt
         cleaned_output = output.strip('*?*').strip()  # Entfernen der '*?*'
