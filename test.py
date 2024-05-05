@@ -175,10 +175,11 @@ def request_clusters(content, model):
 
 def request_categorized_transactions(batches, model, categories):
     final_output = ""  # String, der alle Ergebnisse sammelt
+    print(categories)
     for key, batch in batches.items():
         print(f"Processing batch {key}")
         print(batch)
-        format = 'ID|Transaction Account|Booking Date|Value Date|Booking Text|Purpose|Creditor ID|Mandate Reference|Customer Reference (End-to-End)|Collectors Reference|Original Debit Amount|Expenses Replacement for Returned Debit|Beneficiary/Payee|Account Number/IBAN|BIC (SWIFT Code)|Amount|Currency|Information'
+        format = 'transaction_ID|Transaction Account|Booking Date|Value Date|Booking Text|Purpose|Creditor ID|Mandate Reference|Customer Reference (End-to-End)|Collectors Reference|Original Debit Amount|Expenses Replacement for Returned Debit|Beneficiary/Payee|Account Number/IBAN|BIC (SWIFT Code)|Amount|Currency|Information'
         #formatted_batch = f"I have folling format for all  batches: {format};the values are seperated by ';', there can be empty values, marked by '' ; this are the batches:\n{batch}; put each of those 5 bank transactions in the most suitable category of the following list: {categories}, ignore the numbers behind the categories. always ask your self like 'do i know the payee (13th value), have i ever heard of it, is it familiar to something, which category could it be'; one transaction has to be in exactly one category, transactions to the same destination/IBAN (14th value) must be in the same category except if it is a payment service as e.g. paypal, you can search for words in the purpose (6th and 13th value each time) of use which can give you a hint for the most suitable category, maybe the payee can also give you a hint, for example if it is a company, give me as output 5 rows mandatory in the following  format: category_id | transaction id (first value in each transaction string, in the format int_int)| Accountnumber of the payee/Iban (entire 14th value, delete the 'DE', just the number, always put the entire number in the output); give me no further text, begin and end my output with the string '*?*' so i can work with it; for example '*?*\n1|1_1|51300500000001474915\n2|1_2|51300500000001474914\n4|1_3|51300500000001474913\n17|1_4|51300500000001474912\n2|1_5|51300500000001474911\n*?*', give me exactly the same format. This is the current list, use it if the payee is in this list yet and put the new transaction in the same category: {final_output}"
         formatted_batch = f'''
         I have the following batch format: {format};
@@ -188,16 +189,20 @@ def request_categorized_transactions(batches, model, categories):
         Your task is to categorize each of these 5 bank transactions into the most suitable category from the following list: {categories}.
         Ensure that transactions with the same payee (IBAN) are consistently categorized based on the `final_output`. If a payee/IBAN has been categorized previously, assign the same category to new transactions involving this payee/IBAN.
         Each transaction must be categorized into exactly one category.
-        Utilize any identifiable information such as the payee, purpose of payment, or any known references to determine the correct category.
-        The output format should be:
-        '*?*
-        category_id | transaction_id | IBAN (exclude 'DE' and include entire number)
-        *?*'
+        Utilize any identifiable information such as the payee, purpose of payment, any known references or just single words inside them to determine the correct category, search your own knowledge, the most rellevant informations are included in the Beneficiary/Payee value and maybe in the booking text value. 
+        The output string format must be, you must not add any further information in or outside the output string:
+        *?*
+        category_id (the number in front of the categories) | transaction_id(int_int) | IBAN (entire iban, dont short anything, Do not include any separators, it is a continuous number, the length is most times minimum 20digits)
+        category_id | transaction_id | IBAN (entire iban, dont short anything, Do not include any separators, it is a continuous number, the length is most times minimum 20digits)
+        category_id | transaction_id | IBAN (entire iban, dont short anything, Do not include any separators, it is a continuous number, the length is most times minimum 20digits)
+        category_id | transaction_id | IBAN (entire iban, dont short anything, Do not include any separators, it is a continuous number, the length is most times minimum 20digits)
+        category_id | transaction_id | IBAN (entire iban, dont short anything, Do not include any separators, it is a continuous number, the length is most times minimum 20digits)
+        *?*
         For example:
-        *?*\n1|1_1|3762500000009849605\n2|1_2|70763500000006010410\n4|1_3|8664926000001439464\n17|1_4|7500500000959566027\n2|1_5|1300500000001474915\n*?*
-        I dont want any further text except this
+        *?*\n1|1_1|DE3762500000009849605\n2|1_2|DE70763500000006010410\n4|1_3|DE8664926000001439464\n17|1_4|DE7500500000959566027\n2|1_5|DE1300500000001474915\n*?*
+        there mustnt be any further text, dont change the output format and you mustnt add any other informations to the output
         Note: Always review `final_output` for existing categorizations to maintain consistency.
-        
+        give me no code or algorithm/script, give me the categorized transactions with the given instructions and follow strict the formatting instructions, do exact the things i want
         '''
         output = single_request(formatted_batch, model=model)  # Annahme, dass single_request die API-Anfrage handhabt
         cleaned_output = output.strip('*?*').strip()  # Entfernen der '*?*'
